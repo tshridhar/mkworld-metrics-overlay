@@ -1,0 +1,33 @@
+[package]
+name = "match_counter_detector"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.36", features = ["full"] }
+
+# Web server
+axum = "0.7"
+tower-http = { version = "0.5", features = ["fs", "cors"] }
+
+# Image processing
+image = "0.25"
+
+# OCR
+ocrs = "0.8"
+rten = "0.13.1"
+rten-tensor = "0.13.1"
+rten-imageio = "0.13.1"
+reqwest = { version = "0.11", features = ["blocking"] }
+
+# Utilities
+regex = "1.10"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+futures = "0.3"
+crossbeam-channel = "0.5"
+lazy_static = "1.4"
+tokio-stream = "0.1.18"
+xcap = "0.9.3"
+tokio-util = "0.7.18"

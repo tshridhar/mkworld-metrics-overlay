@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Points Tracker</title>
+    <style>
+        /* Font face for Avenir Black */
+        @font-face {
+            font-family: "Avenir Black";
+            src: url("/fonts/Avenir-Black.ttf") format("truetype");
+            font-display: swap;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: transparent;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        /* Unified MMR Display Component ported from MKWorld */
+        .mmr-display {
+            background: rgba(0, 0, 0, 0.6);
+            border: none;
+            border-radius: 30px;
+            padding: 12px 30px;
+            text-align: center;
+            display: inline-block;
+            position: relative;
+            margin: 0;
+            /* Subtle animation on change */
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .mmr-display.pulse {
+            transform: scale(1.1);
+        }
+
+        .mmr-display::before {
+            content: "";
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            right: 4px;
+            bottom: 4px;
+            border: 3px solid rgba(115, 115, 115, 0.842);
+            border-radius: 28px;
+            pointer-events: none;
+        }
+
+        .mmr-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .mmr-number {
+            font-size: 72px;
+            font-weight: 900;
+            color: white;
+            text-shadow: 4px 4px 8px rgba(0, 0, 0, 0.8);
+            font-family:
+                "Avenir Black", "Avenir", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+            margin-top: 5px;
+            margin-bottom: 0;
+            letter-spacing: 3px;
+            display: flex;
+            align-items: baseline;
+            justify-content: center;
+            gap: 12px;
+            line-height: 1;
+        }
+
+        /* Styled label component */
+        .tracker-label {
+            color: #a0a0a0;
+            font-size: 52px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="points-container" class="mmr-display">
+        <div class="mmr-content">
+            <p id="points-display" class="mmr-number">
+                <span class="tracker-label">Current points:</span> --
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Start at null so we only pulse when it actually receives data
+        let currentPoints = null;
+        const displayContainer = document.getElementById('points-container');
+        const display = document.getElementById('points-display');
+        const sseUrl = `http://localhost:3000/events`;
+
+        let eventSource = null;
+
+        function connectSSE() {
+            if (eventSource !== null) {
+                eventSource.close();
+            }
+
+            eventSource = new EventSource(sseUrl);
+
+            eventSource.onopen = function () {
+                console.log("Connected to match_counter_detector backend.");
+            };
+
+            eventSource.onmessage = function (event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    const backendData = typeof data === "string" ? JSON.parse(data) : data;
+
+                    // Evaluate if backend knows about the points yet
+                    if (backendData.points !== undefined && backendData.points !== null) {
+                        if (backendData.points !== currentPoints) {
+                            currentPoints = backendData.points;
+                            
+                            // Update the HTML cleanly
+                            display.innerHTML = `<span class="tracker-label">Current points:</span> ${currentPoints}`;
+
+                            displayContainer.classList.add('pulse');
+                            setTimeout(() => {
+                                displayContainer.classList.remove('pulse');
+                            }, 500);
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error parsing event data:", e);
+                }
+            };
+
+            eventSource.onerror = function (err) {
+                console.error("EventSource failed:", err);
+                
+                if (eventSource.readyState === EventSource.CLOSED) {
+                    console.log("Connection dead. Forcing manual reset in 3s...");
+                    eventSource.close();
+                    setTimeout(connectSSE, 3000);
+                }
+            };
+        }
+
+        connectSSE();
+    </script>
+</body>
+
+</html>

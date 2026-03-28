@@ -1,0 +1,29 @@
+= Information Presentation & Metric Tracking Expectations =
+(For Future AI Context & Architecture Scaling)
+
+## Context
+Mario Kart lobbies exist in 12-Player and 24-Player configurations. 
+After a race concludes, the game surfaces metrics on two distinct scoreboard screens.
+
+## Screen 3a: Race Placement (`+Gain Prior`)
+This screen appears first and sorts the players purely by how they placed in the most recent single race.
+**Visual Structure:** 
+- The text is aligned on the right side of the screen next to the player's name.
+- It contains TWO separate number clumps: `[+X]    [Y]`.
+- Output: `+Gain    Prior Score`. 
+- **Example:** `RunnerXxX   +15   42`. 
+- **Requirement for later:** The total running score is calculated by parsing both numbers and mathematically summing them (`42 + 15 = 57`), OR tracking the animation if it counts up. 
+- **12-Player constraint:** All 12 players fit on the screen.
+- **24-Player constraint:** The UI scrolls dynamically to center on the active player. If the player is in the top 13, it will only show the top 13 players.
+
+## Screen 3b: Overall Sum Placement
+This screen appears second and sorts the players by their total accumulated points over the entire set of races (the Mogi).
+**Visual Structure:**
+- The text is cleanly aligned on the far right.
+- It contains ONE single number clump for the absolute total score.
+- **Example:** `RunnerXxX     57`.
+- **Requirement:** This is incredibly reliable for Computer Vision because a Regex end-of-string search (`\s(\d{1,3})$`) securely isolates the integer.
+
+## Future Dynamic Target Detection
+Currently, the OCR engine relies on a hardcoded "Alias" string (e.g. searching specifically for the literal characters "RunnerXxX"). 
+In the future, the backend should be rewritten to detect the Player automatically. Since the active host player is always **highlighted** in the UI with a distinct yellow/bright rectangular background on the scoreboard, OpenCV or simple Image Thresholding can dynamically find the Y-Coordinate of that highlighted box, crop exactly that horizontal row, and extract the Points regardless of the player's name.

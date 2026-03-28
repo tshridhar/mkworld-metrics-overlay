@@ -1,0 +1,32 @@
+= MOGI ANALYTICS & TELEMETRY ROADMAP =
+
+Target Features:
+1. Current mogi placement of a chosen name
+2. Current running score of a chosen name
+3. Current "competition" (2 players ahead/behind your placement)
+4. Score at the end of the half (running sum up to the 6th race)
+
+To pivot from a monolithic OCR loop to an advanced tracking engine, here are the two highest-rated scalability pathways:
+
+---
+
+### DESIGN B: The "Multi-Agent Event Bus" Architecture (Highly Recommended)
+We modularize the application by brutally splitting Capture, Processing, and State. 
+1. The Publisher: A lightweight process simply grabs the desktop screenshot 1 time per second and copies the raw bytecode onto a global Tokio Broadcast Channel (an async Event stream).
+2. The Agents: We spawn ~4 separate asynchronous Rust worker threads (`RaceCounterAgent`, `ScoreboardAgent`, `CompetitionAgent`). They all subscribe to the channel, grab exactly the same frame in parallel, crop their specific regions of interest, and independently run OCR on their sections without blocking each other.
+3. The Reducer: The agents publish strongly-typed metrics (`PlayerScore_Updated(15)`, `Race_Started(4)`) back to a central `StateRedux` bus, which compiles the JSON model and streams it to OBS endpoints.
+
+* Feasibility: 3 / 5 (Requires carefully rewriting the core logic to handle message passing and async multi-threading without memory bloat).
+* Scalability: 5 / 5 (The absolute gold standard. Want to track the minimap? Just spin up a `MinimapAgent`. Want to track items? Spin up an `ItemAgent`. They natively plug into the bus.)
+* Simplicity: 2 / 5 (High architectural complexity. Requires designing event queues, cross-thread synchronicity, and concurrency management).
+
+---
+
+### DESIGN C: "Hybrid Template-Scraping" (The Anti-OCR method)
+Running Neural-Network OCR on arbitrary user gamer-tags (e.g. "xX_Sniper_99" or symbol characters) is notoriously unreliable. Metric #3 (tracking the "Competition" by name) will likely fail using pure OCR.
+Instead, we swap the core technology. We use purely mathematical Template Matching (via a pure-Rust crate like `imageproc`). 
+You create a micro-crop picture of your specific Mario Kart Player Avatar. The Rust system scans the massive scoreboard purely looking for that exact picture contour. Once it mathematically correlates your avatar's exact Y-coordinate on the scoreboard, it dynamically slides to the right, crops ONLY the numbers explicitly aligned next to your avatar, and OCRs your points perfectly without caring about names.
+
+* Feasibility: 3 / 5 (Requires integrating mathematical image-correlation libraries and manually pre-cropping reference images of the player avatars).
+* Scalability: 4 / 5 (Template matching is incredibly fast on the CPU compared to Deep Learning OCR. We can mathematically scan for hundreds of UI elements simultaneously).
+* Simplicity: 1 / 5 (Mixing neural networks (OCR) with mathematical pixel correlation (Template Matching) creates a massive, complex build system and brittle edge cases if the game's UI lighting changes minutely).
