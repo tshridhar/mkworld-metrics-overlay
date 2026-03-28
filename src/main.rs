@@ -1,13 +1,14 @@
+mod agents;
 mod capture;
 mod ocr;
 mod state;
 mod web;
-mod agents;
 
 use crate::state::AppState;
 use std::sync::Arc;
-use tokio::sync::{Mutex, watch};
+use tokio::sync::{watch, Mutex};
 use tokio_util::sync::CancellationToken;
+use tokio::io::AsyncBufReadExt;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -40,24 +41,63 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let frame_rx_clone = frame_rx.clone();
     tokio::spawn(async move {
         // Because the OCR takes massive CPU logic, we unblock the tokio worker loop
-        agents::race_tracker::start(state_clone, frame_rx_clone, tracker_token, detector_clone).await;
+        agents::race_tracker::start(state_clone, frame_rx_clone, tracker_token, detector_clone)
+            .await;
     });
 
     // 7. Spawn the New Mogi Post-Race Score Tracker
     // Currently hardcoded string, but can easily be bound to an .env or command line arg
-    let target_alias = "Player".to_string(); 
+    let target_alias = "tuan".to_string();
     let score_state_clone = state.clone();
     let score_tracker_token = cancel_token.clone();
     let score_detector_clone = detector.clone();
     tokio::spawn(async move {
-        agents::post_race_score::start(score_state_clone, frame_rx, score_tracker_token, score_detector_clone, target_alias).await;
+        agents::post_race_score::start(
+            score_state_clone,
+            frame_rx,
+            score_tracker_token,
+            score_detector_clone,
+            target_alias,
+        )
+        .await;
+    });
+
+    // 7.5. Spawn CLI Input Reader
+    let cli_state_clone = state.clone();
+    tokio::spawn(async move {
+        let stdin = tokio::io::stdin();
+        let mut reader = tokio::io::BufReader::new(stdin).lines();
+        
+        while let Ok(Some(line)) = reader.next_line().await {
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+            if let Some(rest) = line.strip_prefix("race ") {
+                if let Ok(race) = rest.parse::<u32>() {
+                    let mut lock = cli_state_clone.lock().await;
+                    lock.manual_update_race(race);
+                } else {
+                    println!("Invalid race count: {}", rest);
+                }
+            } else if let Some(rest) = line.strip_prefix("score ") {
+                if let Ok(points) = rest.parse::<u32>() {
+                    let mut lock = cli_state_clone.lock().await;
+                    lock.manual_update_points(points);
+                } else {
+                    println!("Invalid points: {}", rest);
+                }
+            } else {
+                println!("Unknown command. Use 'race <num>' or 'score <num>'");
+            }
+        }
     });
 
     // 8. Start Web Server and connect Shutdown Hook
     let app = web::create_router(state.clone());
     let addr = "127.0.0.1:3000";
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    
+
     println!("\n=========================================================================");
     println!("==== MKWORLD METRIC TRACKER SYSTEM ONLINE ====");
     println!("=========================================================================");
