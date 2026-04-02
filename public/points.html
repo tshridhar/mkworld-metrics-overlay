@@ -88,7 +88,7 @@
     <div id="points-container" class="mmr-display">
         <div class="mmr-content">
             <p id="points-display" class="mmr-number">
-                <span class="tracker-label">Current points:</span> --
+                <span class="tracker-label">Score:</span> --
             </p>
         </div>
     </div>
@@ -124,7 +124,7 @@
                             currentPoints = backendData.points;
                             
                             // Update the HTML cleanly
-                            display.innerHTML = `<span class="tracker-label">Current points:</span> ${currentPoints}`;
+                            display.innerHTML = `<span class="tracker-label">Score:</span> ${currentPoints}`;
 
                             displayContainer.classList.add('pulse');
                             setTimeout(() => {
